@@ -9,6 +9,10 @@ struct CLI {
 
     func run(_ arguments: [String]) -> Int32 {
         switch arguments.first {
+        case "--version":
+            print(AppVersion.current)
+            return 0
+
         case "--list":
             for clone in manager.clones() {
                 let state = locator.runningPID(for: clone).map { "running pid \($0)" } ?? "stopped"
@@ -55,8 +59,8 @@ struct CLI {
     }
 
     private func usage() -> Int32 {
-        print("usage: ClaudeClones [--list | --create <name> | --rename <old> <new> "
-              + "| --delete <name> [--with-profile]]")
+        print("usage: ClaudeClones [--version | --list | --create <name> "
+              + "| --rename <old> <new> | --delete <name> [--with-profile]]")
         return 2
     }
 }

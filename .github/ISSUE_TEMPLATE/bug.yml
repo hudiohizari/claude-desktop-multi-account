@@ -1,0 +1,52 @@
+name: Bug report
+description: Something does not work
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Logs help a lot. The app writes `~/Library/Logs/ClaudeClones.log`, and each
+        profile keeps its own at `~/.claude-instances/clone-N/Logs/main.log`. Links in
+        those logs are already redacted, but please skim before pasting.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      placeholder: A clone opened a blank window, the link went to the wrong account, ...
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Create a profile named Work
+        2. Turn on Ask where links open
+        3. ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Claude Clones version
+      description: The popover footer shows it, or run the binary with --version.
+      placeholder: v0.1.0
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version and chip
+      placeholder: macOS 26.1, Apple M2
+    validations:
+      required: true
+  - type: input
+    id: claude
+    attributes:
+      label: Claude Desktop version
+      placeholder: 1.24012.9
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log lines
+      render: text

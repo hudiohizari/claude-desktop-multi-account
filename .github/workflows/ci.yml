@@ -57,15 +57,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # The pattern is built with printf so this file does not contain the very
-      # characters it rejects.
+      # Checked in Python so this file contains no instance of what it forbids.
       - name: No em dashes
         run: |
-          dashes=$(printf '—–')
-          if grep -rn "[$dashes]" --include='*.swift' --include='*.md' --include='*.sh' . ; then
-            echo "::error::em or en dash found, use a comma or a plain hyphen"
-            exit 1
-          fi
+          python3 - <<'CHECK'
+          import pathlib, sys
+          suffixes = {".swift", ".md", ".sh", ".rb", ".yml", ".json"}
+          offenders = [
+              str(path)
+              for path in pathlib.Path(".").rglob("*")
+              if path.is_file() and path.suffix in suffixes
+              and not str(path).startswith((".git/", ".build/", "build/"))
+              and any(dash in path.read_text(errors="ignore") for dash in ("\u2014", "\u2013"))
+          ]
+          if offenders:
+              print("em or en dash found, use a comma or a plain hyphen:")
+              print("\n".join(offenders))
+              sys.exit(1)
+          CHECK
 
       # CLI.swift is a command line tool and prints on purpose; everything else
       # should go through Log.write, since stderr is discarded when LaunchServices

@@ -16,27 +16,39 @@ jobs:
   release:
     name: Build and publish
     runs-on: macos-15
+    env:
+      # Mapped here because the secrets context is not dependable inside a step's
+      # `if`, while env is.
+      MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+      MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+      MACOS_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
+      NOTARY_APPLE_ID: ${{ secrets.NOTARY_APPLE_ID }}
+      NOTARY_TEAM_ID: ${{ secrets.NOTARY_TEAM_ID }}
+      NOTARY_PASSWORD: ${{ secrets.NOTARY_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
+
+      # VERSION is the source of truth, so a tag that disagrees with it is a
+      # mistake worth failing on rather than shipping a mislabelled build.
+      - name: Resolve and check version
+        id: version
+        run: |
+          tag="${{ github.event.inputs.tag || github.ref_name }}"
+          number="${tag#v}"
+          file=$(tr -d '[:space:]' < VERSION)
+          if [ "$number" != "$file" ]; then
+            echo "::error::tag $tag does not match VERSION ($file)"
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "number=$number" >> "$GITHUB_OUTPUT"
 
       - name: Test before shipping
         run: swift test
 
+      # build.sh stamps CFBundleShortVersionString and CFBundleVersion from VERSION.
       - name: Build the app bundle
         run: ./build.sh
-
-      - name: Resolve version
-        id: version
-        run: |
-          tag="${{ github.event.inputs.tag || github.ref_name }}"
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          echo "number=${tag#v}" >> "$GITHUB_OUTPUT"
-
-      - name: Stamp the version into the bundle
-        run: |
-          /usr/libexec/PlistBuddy -c \
-            "Set :CFBundleShortVersionString ${{ steps.version.outputs.number }}" \
-            "build/Claude Clones.app/Contents/Info.plist"
 
       # Signing and notarizing is optional: without the secrets the release still
       # goes out ad-hoc signed, and users right click, Open once. With them, the app
@@ -48,26 +60,22 @@ jobs:
       # NOTARY_TEAM_ID, NOTARY_PASSWORD (an app specific password).
       - name: Sign with Developer ID
         id: signing
-        if: ${{ secrets.MACOS_CERTIFICATE != '' }}
-        env:
-          CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
-          CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
-          IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
+        if: ${{ env.MACOS_CERTIFICATE != '' }}
         run: |
           keychain=$RUNNER_TEMP/signing.keychain-db
           password=$(uuidgen)
           security create-keychain -p "$password" "$keychain"
           security set-keychain-settings -lut 900 "$keychain"
           security unlock-keychain -p "$password" "$keychain"
-          echo "$CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          echo "$MACOS_CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/cert.p12"
           security import "$RUNNER_TEMP/cert.p12" -k "$keychain" \
-            -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+            -P "$MACOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
           security set-key-partition-list -S apple-tool:,apple:,codesign: \
             -s -k "$password" "$keychain" > /dev/null
           security list-keychain -d user -s "$keychain" login.keychain-db
           rm -f "$RUNNER_TEMP/cert.p12"
           codesign --force --options runtime --timestamp \
-            --sign "$IDENTITY" "build/Claude Clones.app"
+            --sign "$MACOS_SIGNING_IDENTITY" "build/Claude Clones.app"
           codesign --verify --strict --deep "build/Claude Clones.app"
           echo "signed=true" >> "$GITHUB_OUTPUT"
 
@@ -85,15 +93,12 @@ jobs:
       # Notarizing the zip, then stapling the app inside the bundle, so a fresh
       # download opens with no warning at all.
       - name: Notarize and staple
-        if: ${{ steps.signing.outputs.signed == 'true' && secrets.NOTARY_PASSWORD != '' }}
-        env:
-          APPLE_ID: ${{ secrets.NOTARY_APPLE_ID }}
-          TEAM_ID: ${{ secrets.NOTARY_TEAM_ID }}
-          NOTARY_PASSWORD: ${{ secrets.NOTARY_PASSWORD }}
+        if: ${{ steps.signing.outputs.signed == 'true' && env.NOTARY_PASSWORD != '' }}
         run: |
           cd build
           xcrun notarytool submit "ClaudeClones-${{ steps.version.outputs.tag }}.zip" \
-            --apple-id "$APPLE_ID" --team-id "$TEAM_ID" --password "$NOTARY_PASSWORD" \
+            --apple-id "$NOTARY_APPLE_ID" --team-id "$NOTARY_TEAM_ID" \
+            --password "$NOTARY_PASSWORD" \
             --wait
           xcrun stapler staple "Claude Clones.app"
           rm "ClaudeClones-${{ steps.version.outputs.tag }}.zip"
@@ -107,6 +112,21 @@ jobs:
           sum=$(shasum -a 256 "build/ClaudeClones-${{ steps.version.outputs.tag }}.zip" \
             | cut -d' ' -f1)
           echo "sha256=$sum" >> "$GITHUB_OUTPUT"
+
+      - name: Bump the cask
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cask=Casks/claude-clones.rb
+          sed -i '' "s/^  version \".*\"$/  version \"${{ steps.version.outputs.number }}\"/" "$cask"
+          sed -i '' "s/^  sha256 .*$/  sha256 \"${{ steps.checksum.outputs.sha256 }}\"/" "$cask"
+          if [ -n "$(git status --porcelain "$cask")" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add "$cask"
+            git commit -m "chore: cask ${{ steps.version.outputs.tag }}"
+            git push origin HEAD:${{ github.event.repository.default_branch }}
+          fi
 
       - name: Publish release
         env:

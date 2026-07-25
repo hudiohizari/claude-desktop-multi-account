@@ -1,0 +1,22 @@
+name: Feature request
+description: Suggest something
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do that is awkward today?
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What you have in mind
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope check
+      options:
+        - label: This helps run or manage more than one Claude account, rather than being a general Claude feature request
+          required: true

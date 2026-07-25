@@ -7,6 +7,8 @@ cd "$(dirname "$0")"
 
 sources() { ls ClaudeClones/*.swift | grep -v 'ClaudeClones/main.swift'; }
 
+version=$(tr -d '[:space:]' < VERSION)
+
 if [ "${1:-}" = "--shots" ]; then
   mkdir -p build docs/screenshots
   # shellcheck disable=SC2046
@@ -30,7 +32,7 @@ iconutil -c icns build/AppIcon.iconset -o "$app/Contents/Resources/AppIcon.icns"
 # LSUIElement: menu bar only, no Dock tile.
 # The claude:// entry lets it be chosen as the handler; it does not claim the
 # scheme on its own - that is a menu item you have to click.
-cat > "$app/Contents/Info.plist" <<'PLIST'
+cat > "$app/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
@@ -39,7 +41,8 @@ cat > "$app/Contents/Info.plist" <<'PLIST'
   <key>CFBundleIdentifier</key><string>com.local.claudeclones</string>
   <key>CFBundleName</key><string>Claude Clones</string>
   <key>CFBundlePackageType</key><string>APPL</string>
-  <key>CFBundleShortVersionString</key><string>0.1</string>
+  <key>CFBundleShortVersionString</key><string>${version}</string>
+  <key>CFBundleVersion</key><string>${version}</string>
   <key>LSMinimumSystemVersion</key><string>12.0</string>
   <key>LSUIElement</key><true/>
   <key>CFBundleURLTypes</key><array><dict>
