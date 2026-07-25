@@ -114,9 +114,27 @@ jobs:
             | cut -d' ' -f1)
           echo "sha256=$sum" >> "$GITHUB_OUTPUT"
 
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "${NOTARIZED:-0}" = "1" ]; then
+            note="Signed and notarized, so it opens normally."
+          else
+            note="Signed ad-hoc and not notarized, so the first launch needs right click, Open. Building it yourself with ./build.sh --install avoids that."
+          fi
+          gh release create "${{ steps.version.outputs.tag }}" \
+            "build/ClaudeClones-${{ steps.version.outputs.tag }}.zip" \
+            --title "Claude Clones ${{ steps.version.outputs.tag }}" \
+            --generate-notes \
+            --notes "$note
+
+          sha256: \`${{ steps.checksum.outputs.sha256 }}\`"
+
       # Opens a PR rather than pushing to the default branch, so this still works
       # with pull requests required on main.
       - name: Bump the cask
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -134,24 +152,10 @@ jobs:
           git add "$cask"
           git commit -m "chore: cask ${{ steps.version.outputs.tag }}"
           git push origin "$branch"
+          # Needs Settings, Actions, General, "Allow GitHub Actions to create and
+          # approve pull requests". Without it the branch is still pushed and the
+          # PR can be opened by hand.
           gh pr create --base "${{ github.event.repository.default_branch }}" \
             --head "$branch" \
             --title "chore: cask ${{ steps.version.outputs.tag }}" \
             --body "Version and checksum for ${{ steps.version.outputs.tag }}, opened by the release workflow."
-
-      - name: Publish release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          if [ "${NOTARIZED:-0}" = "1" ]; then
-            note="Signed and notarized, so it opens normally."
-          else
-            note="Signed ad-hoc and not notarized, so the first launch needs right click, Open. Building it yourself with ./build.sh --install avoids that."
-          fi
-          gh release create "${{ steps.version.outputs.tag }}" \
-            "build/ClaudeClones-${{ steps.version.outputs.tag }}.zip" \
-            --title "Claude Clones ${{ steps.version.outputs.tag }}" \
-            --generate-notes \
-            --notes "$note
-
-          sha256: \`${{ steps.checksum.outputs.sha256 }}\`"
