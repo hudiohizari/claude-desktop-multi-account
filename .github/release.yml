@@ -1,0 +1,15 @@
+# Categories for the auto generated release notes.
+changelog:
+  exclude:
+    labels: [dependencies]
+  categories:
+    - title: Features
+      labels: ["*"]
+      exclude:
+        labels: [bug, docs, chore]
+    - title: Fixes
+      labels: [bug]
+    - title: Docs
+      labels: [docs]
+    - title: Maintenance
+      labels: [chore]

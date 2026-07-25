@@ -172,6 +172,11 @@ struct PopoverView: View {
             Divider()
 
             HStack {
+                Text(AppVersion.display)
+                    .font(.system(size: 10))
+                    .foregroundStyle(.tertiary)
+                    .padding(.leading, 6)
+                    .accessibilityLabel("Version \(AppVersion.current)")
                 Spacer()
                 Button("Quit") { NSApp.terminate(nil) }
                     .buttonStyle(.plain)

@@ -1,0 +1,10 @@
+version: 2
+updates:
+  # Swift has no dependencies here, so Actions is the only moving part.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: "chore"
+    labels: [dependencies]

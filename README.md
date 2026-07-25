@@ -292,6 +292,29 @@ screenshots in this README from the real views, with `./build.sh --shots`.
 Small helpers such as `IconBadger`, `BundleRegistrar` and `DiskSize` stay concrete:
 an interface with one implementation and one caller earns nothing.
 
+## Versioning
+
+`VERSION` at the repo root is the single source of truth. `build.sh` stamps it into
+`CFBundleShortVersionString` and `CFBundleVersion`, the popover footer and
+`--version` report it, and the release workflow refuses to publish a tag that
+disagrees with it.
+
+Semantic versioning, and releases are cut with:
+
+```bash
+./scripts/release.sh 0.2.0
+```
+
+That runs the tests, bumps `VERSION`, commits, tags `v0.2.0` and pushes. The tag
+triggers the release workflow, which builds, signs, notarizes when the secrets are
+present, publishes the zip and bumps `Casks/claude-clones.rb`.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup and house rules, and
+[SECURITY.md](SECURITY.md) for what the app can reach, which is useful context when
+judging a report.
+
 ## Development
 
 ```bash
