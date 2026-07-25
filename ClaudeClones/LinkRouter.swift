@@ -58,7 +58,7 @@ struct AppleEventLinkRouter: LinkDelivering {
 }
 
 /// Who currently owns the claude:// scheme.
-struct SchemeOwnership {
+struct SchemeOwnership: SchemeOwning {
     let scheme = "claude"
 
     var ownerBundleID: String? {

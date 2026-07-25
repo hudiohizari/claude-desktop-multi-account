@@ -14,7 +14,7 @@ final class LinkChooser {
              running: Set<Int>,
              suggested: Clone?,
              completion: @escaping (Choice?) -> Void) {
-        let view = LinkChooserView(link: link,
+        let view = LinkChooserView(link: Redact.link(link),
                                    clones: clones,
                                    running: running,
                                    selected: suggested?.id) { [weak self] choice in
@@ -39,7 +39,7 @@ final class LinkChooser {
         self.window = window
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
-        Log.write("chooser: shown for \(link), \(clones.count) clone(s)")
+        Log.write("chooser: shown for \(Redact.link(link)), \(clones.count) clone(s)")
     }
 
     private func close() {

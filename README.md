@@ -33,6 +33,7 @@ and entitlements, which is what the Cowork VM, passkeys and Microsoft SSO depend
 - [Uninstall](#uninstall)
 - [Project layout](#project-layout)
 - [Development](#development)
+- [Privacy](#privacy)
 - [Disclaimer](#disclaimer)
 
 ## Why
@@ -76,6 +77,15 @@ open it. The instance you last used is preselected.
 
 ## Install
 
+Homebrew:
+
+```bash
+brew tap hudiohizari/claude-desktop-multi-account https://github.com/hudiohizari/claude-desktop-multi-account
+brew install --cask claude-clones
+```
+
+Or from source:
+
 ```bash
 git clone https://github.com/hudiohizari/claude-desktop-multi-account.git
 cd claude-desktop-multi-account
@@ -101,8 +111,14 @@ like any other app. They run simultaneously and never log each other out.
 
 **Route links.** Turn on **Ask where links open** and the app claims `claude://`.
 Every deep link then opens a chooser: `claude://resume` from Claude Code, MCP
-connector OAuth callbacks, shared Cowork artifacts, magic links. Turn it off to hand
-the scheme back to Claude.
+connector OAuth callbacks, shared Cowork artifacts, magic links. Claude re-registers
+itself for the scheme on every launch, so the app watches for that and quietly claims
+it back. Turn the switch off to hand the scheme over for good.
+
+**Reach the stock profile.** The first row, **Claude**, opens your original
+non-clone profile. Use it rather than the Dock: while a clone is running,
+LaunchServices treats that bundle id as already running, so opening Claude the usual
+way just brings the clone forward. That row forces a new instance instead.
 
 **Rename or delete.** Use the row's ••• menu. Deleting asks whether to remove the
 profile too, and shows how large it is first, because that directory holds the
@@ -279,7 +295,7 @@ an interface with one implementation and one caller earns nothing.
 ## Development
 
 ```bash
-swift test          # 47 unit tests, no side effects outside a temp directory
+swift test          # 66 unit tests, no side effects outside a temp directory
 ./build.sh          # build/Claude Clones.app
 ./build.sh --shots  # re-render docs/screenshots from the real views
 ```
@@ -296,6 +312,20 @@ CI runs the tests, builds the bundle, checks its signature and Info.plist, smoke
 tests the CLI, and enforces one house rule: no `NSLog` or `print` outside
 `CLI.swift`. Tagging `v*` builds, stamps the version, packages with `ditto`
 and publishes a GitHub release.
+
+## Privacy
+
+- **No network access.** The app makes no requests of its own, has no analytics and
+  no update check. Nothing about your profiles leaves the machine.
+- **Links are redacted before they are written or shown.** A `claude://` link can
+  carry a magic-link token or an OAuth code. The chooser and the log keep the shape,
+  `claude://claude.ai/magic-link?token=<redacted>`, and drop every query value, the
+  fragment and any credentials.
+- **It never reads your Claude data.** No profile, cookie, keychain item or chat is
+  opened. The app only writes its own launchers, `~/.claude-instances/clones.json`,
+  and its log at `~/Library/Logs/ClaudeClones.log`, owner readable only.
+- **Deleting a profile is explicit.** Removing a launcher leaves the data unless you
+  choose otherwise, and the prompt shows the size first.
 
 ## Disclaimer
 

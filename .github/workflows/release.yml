@@ -37,7 +37,43 @@ jobs:
           /usr/libexec/PlistBuddy -c \
             "Set :CFBundleShortVersionString ${{ steps.version.outputs.number }}" \
             "build/Claude Clones.app/Contents/Info.plist"
-          codesign --force --sign - "build/Claude Clones.app"
+
+      # Signing and notarizing is optional: without the secrets the release still
+      # goes out ad-hoc signed, and users right click, Open once. With them, the app
+      # installs without any Gatekeeper prompt.
+      #
+      # Secrets to set: MACOS_CERTIFICATE (base64 of a Developer ID Application .p12),
+      # MACOS_CERTIFICATE_PASSWORD, MACOS_SIGNING_IDENTITY (for example
+      # "Developer ID Application: Your Name (TEAMID)"), NOTARY_APPLE_ID,
+      # NOTARY_TEAM_ID, NOTARY_PASSWORD (an app specific password).
+      - name: Sign with Developer ID
+        id: signing
+        if: ${{ secrets.MACOS_CERTIFICATE != '' }}
+        env:
+          CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+          CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
+        run: |
+          keychain=$RUNNER_TEMP/signing.keychain-db
+          password=$(uuidgen)
+          security create-keychain -p "$password" "$keychain"
+          security set-keychain-settings -lut 900 "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+          echo "$CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -k "$keychain" \
+            -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "$password" "$keychain" > /dev/null
+          security list-keychain -d user -s "$keychain" login.keychain-db
+          rm -f "$RUNNER_TEMP/cert.p12"
+          codesign --force --options runtime --timestamp \
+            --sign "$IDENTITY" "build/Claude Clones.app"
+          codesign --verify --strict --deep "build/Claude Clones.app"
+          echo "signed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Ad-hoc sign
+        if: ${{ steps.signing.outputs.signed != 'true' }}
+        run: codesign --force --sign - "build/Claude Clones.app"
 
       # ditto keeps the bundle's symlinks and permissions, which zip flattens.
       - name: Package
@@ -46,12 +82,45 @@ jobs:
           ditto -c -k --sequesterRsrc --keepParent "Claude Clones.app" \
             "ClaudeClones-${{ steps.version.outputs.tag }}.zip"
 
+      # Notarizing the zip, then stapling the app inside the bundle, so a fresh
+      # download opens with no warning at all.
+      - name: Notarize and staple
+        if: ${{ steps.signing.outputs.signed == 'true' && secrets.NOTARY_PASSWORD != '' }}
+        env:
+          APPLE_ID: ${{ secrets.NOTARY_APPLE_ID }}
+          TEAM_ID: ${{ secrets.NOTARY_TEAM_ID }}
+          NOTARY_PASSWORD: ${{ secrets.NOTARY_PASSWORD }}
+        run: |
+          cd build
+          xcrun notarytool submit "ClaudeClones-${{ steps.version.outputs.tag }}.zip" \
+            --apple-id "$APPLE_ID" --team-id "$TEAM_ID" --password "$NOTARY_PASSWORD" \
+            --wait
+          xcrun stapler staple "Claude Clones.app"
+          rm "ClaudeClones-${{ steps.version.outputs.tag }}.zip"
+          ditto -c -k --sequesterRsrc --keepParent "Claude Clones.app" \
+            "ClaudeClones-${{ steps.version.outputs.tag }}.zip"
+          echo "NOTARIZED=1" >> "$GITHUB_ENV"
+
+      - name: Compute the cask checksum
+        id: checksum
+        run: |
+          sum=$(shasum -a 256 "build/ClaudeClones-${{ steps.version.outputs.tag }}.zip" \
+            | cut -d' ' -f1)
+          echo "sha256=$sum" >> "$GITHUB_OUTPUT"
+
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          if [ "${NOTARIZED:-0}" = "1" ]; then
+            note="Signed and notarized, so it opens normally."
+          else
+            note="Signed ad-hoc and not notarized, so the first launch needs right click, Open. Building it yourself with ./build.sh --install avoids that."
+          fi
           gh release create "${{ steps.version.outputs.tag }}" \
             "build/ClaudeClones-${{ steps.version.outputs.tag }}.zip" \
             --title "Claude Clones ${{ steps.version.outputs.tag }}" \
             --generate-notes \
-            --notes "The build is signed ad-hoc, not notarized, so the first launch needs right click, Open. Or build it yourself with ./build.sh --install."
+            --notes "$note
+
+          sha256: \`${{ steps.checksum.outputs.sha256 }}\`"

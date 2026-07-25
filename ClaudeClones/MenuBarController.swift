@@ -10,6 +10,7 @@ final class MenuBarController: NSObject, NSApplicationDelegate, NSPopoverDelegat
     private let locator: InstanceLocating
     private let router: LinkDelivering
     private let chooser = LinkChooser()
+    private let guardian: SchemeGuard
 
     private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let popover = NSPopover()
@@ -18,7 +19,9 @@ final class MenuBarController: NSObject, NSApplicationDelegate, NSPopoverDelegat
         self.manager = manager
         self.locator = locator
         self.router = router
-        self.model = CloneListModel(manager: manager, locator: locator)
+        let guardian = SchemeGuard(ownership: SchemeOwnership())
+        self.guardian = guardian
+        self.model = CloneListModel(manager: manager, locator: locator, guardian: guardian)
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -26,6 +29,7 @@ final class MenuBarController: NSObject, NSApplicationDelegate, NSPopoverDelegat
         item.button?.target = self
         item.button?.action = #selector(togglePopover)
 
+        guardian.startWatching()
         popover.behavior = .transient
         popover.delegate = self
         popover.contentViewController = NSHostingController(rootView: PopoverView(model: model))
@@ -37,6 +41,7 @@ final class MenuBarController: NSObject, NSApplicationDelegate, NSPopoverDelegat
             popover.performClose(nil)
         } else {
             model.refresh()
+            model.recheckSchemeOwnership()
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
             popover.contentViewController?.view.window?.makeKey()
         }
@@ -51,7 +56,7 @@ final class MenuBarController: NSObject, NSApplicationDelegate, NSPopoverDelegat
     /// claude://, so Claude opens it too.
     func application(_ application: NSApplication, open urls: [URL]) {
         for url in urls where url.scheme == "claude" {
-            Log.write("route: received \(url.absoluteString)")
+            Log.write("route: received \(Redact.link(url))")
             route(url)
         }
     }

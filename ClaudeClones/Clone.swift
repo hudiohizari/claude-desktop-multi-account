@@ -22,6 +22,8 @@ struct Clone: Codable, Equatable {
     var pidFile: String { profileDir + "/.instance.pid" }
 }
 
+let claudeBundleID = "com.anthropic.claudefordesktop"
+
 enum Paths {
     static let claudeApp = "/Applications/Claude.app"
     static let claudeBinary = claudeApp + "/Contents/MacOS/Claude"
