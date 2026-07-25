@@ -1,8 +1,19 @@
 #!/bin/bash
 # Build the menu bar app.  ./build.sh            -> build/Claude Clones.app
 #                          ./build.sh --install  -> also copy to ~/Applications and register
+#                          ./build.sh --shots    -> re-render docs/screenshots from the views
 set -euo pipefail
 cd "$(dirname "$0")"
+
+sources() { ls ClaudeClones/*.swift | grep -v 'ClaudeClones/main.swift'; }
+
+if [ "${1:-}" = "--shots" ]; then
+  mkdir -p build docs/screenshots
+  # shellcheck disable=SC2046
+  swiftc -O -framework AppKit -o build/makeshots tools/shots/main.swift $(sources)
+  build/makeshots docs/screenshots
+  exit 0
+fi
 
 app="build/Claude Clones.app"
 lsregister=/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister
