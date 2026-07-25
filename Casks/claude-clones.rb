@@ -6,7 +6,7 @@
 # On each release, bump version and sha256 to the values the release notes print.
 cask "claude-clones" do
   version "0.1.0"
-  sha256 :no_check
+  sha256 "2d9e67eb833a4f21f287aa838d3ba359b0d4a267e1bd8ba1c53f71e7feb8bdd4"
 
   url "https://github.com/hudiohizari/claude-desktop-multi-account/releases/download/v#{version}/ClaudeClones-v#{version}.zip"
   name "Claude Clones"
