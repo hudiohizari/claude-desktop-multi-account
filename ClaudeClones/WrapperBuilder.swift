@@ -7,9 +7,22 @@ protocol CloneProvisioning {
     func remove(_ clone: Clone, includingProfile: Bool)
 }
 
+/// Draws the launcher icon. A protocol because tests stub it out; rendering an icon
+/// per provision would slow them down and needs a window server.
+protocol IconRendering {
+    func badge(_ clone: Clone)
+}
+
+/// Registers a bundle with LaunchServices. Stubbed in tests so they never touch the
+/// real LaunchServices database.
+protocol BundleRegistering {
+    func register(_ path: String)
+    func unregister(_ path: String)
+}
+
 struct AppWrapperBuilder: CloneProvisioning {
-    var icons = IconBadger()
-    var launchServices = BundleRegistrar()
+    var icons: IconRendering = IconBadger()
+    var launchServices: BundleRegistering = BundleRegistrar()
 
     func provision(_ clone: Clone) throws {
         let fm = FileManager.default
@@ -95,7 +108,7 @@ struct AppWrapperBuilder: CloneProvisioning {
 
 /// Claude ships its icon in Assets.car, so there is no .icns to copy - render the
 /// live icon and badge it with the clone number.
-struct IconBadger {
+struct IconBadger: IconRendering {
     func badge(_ clone: Clone) {
         let size = NSSize(width: 512, height: 512)
         let image = NSImage(size: size)
@@ -127,7 +140,7 @@ struct IconBadger {
     }
 }
 
-struct BundleRegistrar {
+struct BundleRegistrar: BundleRegistering {
     func register(_ path: String) { run(["-f", path]) }
     func unregister(_ path: String) { run(["-u", path]) }
 

@@ -1,5 +1,9 @@
 # Claude Clones: run multiple Claude Desktop accounts side by side on macOS
 
+[![CI](https://github.com/hudiohizari/claude-desktop-multi-account/actions/workflows/ci.yml/badge.svg)](https://github.com/hudiohizari/claude-desktop-multi-account/actions/workflows/ci.yml)
+![Platform: macOS 12+](https://img.shields.io/badge/platform-macOS%2012%2B-lightgrey)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+
 Claude Desktop signs in one account at a time, so switching between a work account
 and a personal one means logging out and back in, losing your MCP servers and any
 running Cowork task with it. **Claude Clones** is a small macOS menu bar app that
@@ -28,6 +32,7 @@ and entitlements, which is what the Cowork VM, passkeys and Microsoft SSO depend
 - [Troubleshooting](#troubleshooting)
 - [Uninstall](#uninstall)
 - [Project layout](#project-layout)
+- [Development](#development)
 - [Disclaimer](#disclaimer)
 
 ## Why
@@ -270,6 +275,27 @@ screenshots in this README from the real views, with `./build.sh --shots`.
 
 Small helpers such as `IconBadger`, `BundleRegistrar` and `DiskSize` stay concrete:
 an interface with one implementation and one caller earns nothing.
+
+## Development
+
+```bash
+swift test          # 47 unit tests, no side effects outside a temp directory
+./build.sh          # build/Claude Clones.app
+./build.sh --shots  # re-render docs/screenshots from the real views
+```
+
+`Package.swift` exists only so `swift test` can compile the same sources; the app
+bundle itself comes from `build.sh`. Tests inject `Layout`, `CloneProvisioning`,
+`IconRendering` and `BundleRegistering`, so nothing reaches `~/Applications`,
+`~/.claude-instances` or the LaunchServices database. The suite covers id allocation
+against directories left on disk, rename persistence, prune behaviour, and the
+generated wrapper down to `bash -n` on the launch script and the two Info.plist keys
+that make or break launching.
+
+CI runs the tests, builds the bundle, checks its signature and Info.plist, smoke
+tests the CLI, and enforces two house rules: no em dashes, and no `NSLog` or `print`
+outside `CLI.swift`. Tagging `v*` builds, stamps the version, packages with `ditto`
+and publishes a GitHub release.
 
 ## Disclaimer
 

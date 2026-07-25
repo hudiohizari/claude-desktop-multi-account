@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test and build
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: |
+          swift --version
+          xcodebuild -version
+
+      - name: Cache SwiftPM build
+        uses: actions/cache@v4
+        with:
+          path: .build
+          key: swiftpm-${{ runner.os }}-${{ hashFiles('Package.swift', 'ClaudeClones/**') }}
+          restore-keys: swiftpm-${{ runner.os }}-
+
+      - name: Test
+        run: swift test
+
+      # The app bundle is produced by build.sh, not SwiftPM. Icon rendering here is
+      # CoreGraphics only, so it works on a headless runner; ./build.sh --shots is
+      # deliberately not run, because capturing a window needs a WindowServer.
+      - name: Build the app bundle
+        run: ./build.sh
+
+      - name: Check the bundle
+        run: |
+          app="build/Claude Clones.app"
+          test -x "$app/Contents/MacOS/ClaudeClones"
+          test -f "$app/Contents/Resources/AppIcon.icns"
+          codesign --verify --strict "$app"
+          /usr/libexec/PlistBuddy -c 'Print :LSUIElement' "$app/Contents/Info.plist"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleURLTypes:0:CFBundleURLSchemes:0' \
+            "$app/Contents/Info.plist" | grep -qx claude
+
+      - name: Smoke test the CLI
+        run: '"build/Claude Clones.app/Contents/MacOS/ClaudeClones" --list'
+
+  style:
+    name: Style
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      # The pattern is built with printf so this file does not contain the very
+      # characters it rejects.
+      - name: No em dashes
+        run: |
+          dashes=$(printf '—–')
+          if grep -rn "[$dashes]" --include='*.swift' --include='*.md' --include='*.sh' . ; then
+            echo "::error::em or en dash found, use a comma or a plain hyphen"
+            exit 1
+          fi
+
+      # CLI.swift is a command line tool and prints on purpose; everything else
+      # should go through Log.write, since stderr is discarded when LaunchServices
+      # starts the app.
+      - name: No stray logging in GUI sources
+        run: |
+          if grep -rn 'NSLog(' ClaudeClones/ ; then
+            echo "::error::use Log.write instead of NSLog"
+            exit 1
+          fi
+          if grep -rn 'print(' ClaudeClones/ --exclude=CLI.swift ; then
+            echo "::error::print outside CLI.swift goes nowhere, use Log.write"
+            exit 1
+          fi
