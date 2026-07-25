@@ -39,9 +39,17 @@ struct AppWrapperBuilder: CloneProvisioning {
         if includingProfile { try? FileManager.default.removeItem(atPath: clone.profileDir) }
     }
 
-    // Note: no LSEnvironment key. macOS 26 refuses to launch a bundle that declares
-    // one (_LSOpenURLsWithCompletionHandler error -54, before the executable runs),
-    // so the profile is exported inside the script instead.
+    // Two keys here are load-bearing:
+    //
+    // No LSEnvironment. macOS 26 refuses to launch a bundle that declares one
+    // (_LSOpenURLsWithCompletionHandler error -54, before the executable runs), so
+    // the profile is exported inside the script instead.
+    //
+    // LSArchitecturePriority arm64. The executable is a shell script, so
+    // LaunchServices finds no Mach-O header to read an architecture from and starts
+    // the app as x86_64; `exec` then inherits that, and Claude runs translated under
+    // Rosetta, which renders a blank window and stalls the main process for seconds
+    // at a time. On an Intel Mac this key is simply ignored.
     private func infoPlist(_ clone: Clone) -> String {
         """
         <?xml version="1.0" encoding="UTF-8"?>
@@ -55,6 +63,7 @@ struct AppWrapperBuilder: CloneProvisioning {
           <key>CFBundlePackageType</key><string>APPL</string>
           <key>CFBundleShortVersionString</key><string>1.0</string>
           <key>LSMinimumSystemVersion</key><string>12.0</string>
+          <key>LSArchitecturePriority</key><array><string>arm64</string></array>
         </dict></plist>
         """
     }
