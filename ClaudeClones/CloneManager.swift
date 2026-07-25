@@ -1,20 +1,23 @@
 import Foundation
 
-/// The operations the menu and the CLI both need. Owns the list; delegates
+/// The operations the popover and the CLI both need. Owns the list; delegates
 /// persistence to a `CloneStoring` and bundle work to a `CloneProvisioning`.
 final class CloneManager {
     private let store: CloneStoring
     private let builder: CloneProvisioning
+    private let layout: Layout
 
-    init(store: CloneStoring, builder: CloneProvisioning) {
+    init(store: CloneStoring, builder: CloneProvisioning, layout: Layout = .standard) {
         self.store = store
         self.builder = builder
+        self.layout = layout
     }
 
-    /// Clones whose wrapper still exists - a launcher deleted in Finder drops out.
+    /// Clones whose wrapper still exists, so a launcher deleted in Finder drops out.
     func clones() -> [Clone] {
-        let live = store.load().filter { FileManager.default.fileExists(atPath: $0.appPath) }
-        if live.count != store.load().count { store.save(live) }
+        let stored = store.load()
+        let live = stored.filter { FileManager.default.fileExists(atPath: $0.appPath) }
+        if live.count != stored.count { store.save(live) }
         return live
     }
 
@@ -24,8 +27,8 @@ final class CloneManager {
         let id = nextID(after: all)
         let clone = Clone(id: id,
                           name: name,
-                          profileDir: Paths.profile(id: id),
-                          appPath: Paths.app(named: name))
+                          profileDir: layout.profile(id: id),
+                          appPath: layout.app(named: name))
         try builder.provision(clone)
         all.append(clone)
         store.save(all)
@@ -34,7 +37,7 @@ final class CloneManager {
 
     func rename(_ clone: Clone, to newName: String) throws {
         var updated = clone
-        let newPath = Paths.app(named: newName)
+        let newPath = layout.app(named: newName)
         if newPath != clone.appPath { try builder.move(clone, to: newPath) }
         updated.name = newName
         updated.appPath = newPath
@@ -51,19 +54,15 @@ final class CloneManager {
         store.save(all)
     }
 
+    func delete(_ clone: Clone, includingProfile: Bool) {
+        builder.remove(clone, includingProfile: includingProfile)
+        store.save(store.load().filter { $0.id != clone.id })
+    }
+
     /// Highest id in the store *or* on disk, plus one. Profile directories outlive
     /// their store entry whenever one is lost or pruned, and handing the same id out
     /// twice would point a new clone at someone else's data.
     private func nextID(after known: [Clone]) -> Int {
-        let onDisk = (try? FileManager.default.contentsOfDirectory(atPath: Paths.instancesRoot))?
-            .compactMap { name -> Int? in
-                name.hasPrefix("clone-") ? Int(name.dropFirst("clone-".count)) : nil
-            } ?? []
-        return (known.map(\.id) + onDisk).max().map { $0 + 1 } ?? 1
-    }
-
-    func delete(_ clone: Clone, includingProfile: Bool) {
-        builder.remove(clone, includingProfile: includingProfile)
-        store.save(store.load().filter { $0.id != clone.id })
+        (known.map(\.id) + layout.profileIDsOnDisk()).max().map { $0 + 1 } ?? 1
     }
 }

@@ -1,0 +1,57 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag to release, for example v0.2.0
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Test before shipping
+        run: swift test
+
+      - name: Build the app bundle
+        run: ./build.sh
+
+      - name: Resolve version
+        id: version
+        run: |
+          tag="${{ github.event.inputs.tag || github.ref_name }}"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "number=${tag#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Stamp the version into the bundle
+        run: |
+          /usr/libexec/PlistBuddy -c \
+            "Set :CFBundleShortVersionString ${{ steps.version.outputs.number }}" \
+            "build/Claude Clones.app/Contents/Info.plist"
+          codesign --force --sign - "build/Claude Clones.app"
+
+      # ditto keeps the bundle's symlinks and permissions, which zip flattens.
+      - name: Package
+        run: |
+          cd build
+          ditto -c -k --sequesterRsrc --keepParent "Claude Clones.app" \
+            "ClaudeClones-${{ steps.version.outputs.tag }}.zip"
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ steps.version.outputs.tag }}" \
+            "build/ClaudeClones-${{ steps.version.outputs.tag }}.zip" \
+            --title "Claude Clones ${{ steps.version.outputs.tag }}" \
+            --generate-notes \
+            --notes "The build is signed ad-hoc, not notarized, so the first launch needs right click, Open. Or build it yourself with ./build.sh --install."
