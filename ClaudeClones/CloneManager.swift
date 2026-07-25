@@ -11,7 +11,7 @@ final class CloneManager {
         self.builder = builder
     }
 
-    /// Clones whose wrapper still exists — a launcher deleted in Finder drops out.
+    /// Clones whose wrapper still exists - a launcher deleted in Finder drops out.
     func clones() -> [Clone] {
         let live = store.load().filter { FileManager.default.fileExists(atPath: $0.appPath) }
         if live.count != store.load().count { store.save(live) }

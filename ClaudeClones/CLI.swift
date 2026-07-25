@@ -1,6 +1,6 @@
 import Foundation
 
-/// The same operations without the menu — for scripting, and the runnable check
+/// The same operations without the menu - for scripting, and the runnable check
 /// that the wrapper plumbing works. Second consumer of `CloneManager`, which is
 /// what makes the protocol seams pay for themselves.
 struct CLI {

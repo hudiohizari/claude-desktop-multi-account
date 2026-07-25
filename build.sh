@@ -18,7 +18,7 @@ iconutil -c icns build/AppIcon.iconset -o "$app/Contents/Resources/AppIcon.icns"
 
 # LSUIElement: menu bar only, no Dock tile.
 # The claude:// entry lets it be chosen as the handler; it does not claim the
-# scheme on its own — that is a menu item you have to click.
+# scheme on its own - that is a menu item you have to click.
 cat > "$app/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">

@@ -1,7 +1,7 @@
 # Claude Clones
 
 Menu bar app for running several Claude Desktop accounts side by side on macOS,
-each with its own login, chats, MCP servers and Cowork VM — and for deciding
+each with its own login, chats, MCP servers and Cowork VM - and for deciding
 which one an incoming `claude://` link opens in.
 
 Every clone launches the untouched `/Applications/Claude.app` binary, so the app
@@ -18,12 +18,14 @@ in the menu bar only (no Dock tile).
 
 ## Use
 
-- **New Clone…** creates `~/Applications/Claude <name>.app` plus its profile at
-  `~/.claude-instances/clone-N`. The launcher icon carries the clone number.
-- Clicking a clone launches it, or focuses it if it is already running.
-- Submenus: rename, reveal the profile, delete (launcher only, or with the profile).
-- **Route claude:// links here** makes this app the handler. From then on every
-  deep link asks which profile should open it. The menu item toggles back.
+- **+** creates `~/Applications/Claude <name>.app` plus its profile at
+  `~/.claude-instances/clone-N`, and drops you into inline rename. The launcher
+  icon carries the clone number.
+- Clicking a row launches that profile, or focuses it if it is already running.
+- Row menu: rename, reveal the profile, delete (launcher only, or with the
+  profile, which tells you how big it is first).
+- **Ask where links open** makes this app the `claude://` handler. From then on
+  every deep link opens a chooser. The toggle hands the scheme back.
 
 Same operations without the UI:
 
@@ -38,19 +40,22 @@ Same operations without the UI:
 | File | Responsibility |
 |---|---|
 | `Clone.swift` | Value type: identity and derived paths |
-| `CloneStore.swift` | `CloneStoring` — persistence (`clones.json`) |
-| `WrapperBuilder.swift` | `CloneProvisioning` — writes/moves/removes the .app, badges the icon, registers it |
-| `InstanceLocator.swift` | `InstanceLocating` — which process belongs to which clone |
-| `LinkRouter.swift` | `LinkDelivering` — hands a link to one instance; scheme ownership |
-| `CloneManager.swift` | Use cases shared by the menu and the CLI |
-| `MenuBarController.swift` | UI only; depends on the protocols, never on LaunchServices directly |
-| `Prompt.swift` | Every dialog |
+| `CloneStore.swift` | `CloneStoring` - persistence (`clones.json`) |
+| `WrapperBuilder.swift` | `CloneProvisioning` - writes/moves/removes the .app, badges the icon, registers it |
+| `InstanceLocator.swift` | `InstanceLocating` - which process belongs to which clone |
+| `LinkRouter.swift` | `LinkDelivering` - hands a link to one instance; scheme ownership |
+| `CloneManager.swift` | Use cases shared by the popover and the CLI |
+| `MenuBarController.swift` | Status item, popover host, deep-link entry point |
+| `CloneListModel.swift` | View state; depends on the protocols, never on LaunchServices directly |
+| `PopoverView.swift` | The popover: rows, empty state, delete sheet, routing toggle |
+| `LinkChooser.swift` | The window that asks where an incoming link should open |
+| `StatusIcon.swift`, `Theme.swift` | Menu bar glyph, shared colours and motion |
 | `CLI.swift` | Headless commands |
 | `main.swift` | Composition root |
 
 Protocols exist where the menu and the CLI both consume them, or where the system
 boundary needs to be swappable for a test. Small helpers (`IconBadger`,
-`BundleRegistrar`, `DiskSize`) stay concrete — an interface with one
+`BundleRegistrar`, `DiskSize`) stay concrete - an interface with one
 implementation and one caller earns nothing.
 
 ## How it works, and why it is built this way
@@ -83,5 +88,5 @@ Measured on macOS 26 (Darwin 25.5) with Claude Desktop 1.24012.9:
 
 The app binary, the `Claude Safe Storage` keychain key (same bundle, so no
 prompts, and each instance only decrypts its own cookies), the `claude://`
-handler, `~/.claude` if you use the Claude Code CLI, and your filesystem — a
+handler, `~/.claude` if you use the Claude Code CLI, and your filesystem - a
 Cowork VM mounts your home directory, so clones see the same files.

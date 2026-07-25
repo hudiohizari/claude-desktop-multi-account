@@ -84,7 +84,7 @@ struct AppWrapperBuilder: CloneProvisioning {
     }
 }
 
-/// Claude ships its icon in Assets.car, so there is no .icns to copy — render the
+/// Claude ships its icon in Assets.car, so there is no .icns to copy - render the
 /// live icon and badge it with the clone number.
 struct IconBadger {
     func badge(_ clone: Clone) {
