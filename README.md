@@ -219,12 +219,14 @@ accounts to dodge usage limits, and it does not touch rate limits or billing.
 
 Yes. The `arm64` architecture preference is simply ignored there.
 
-### Why does my second profile show as number 3?
+### Why is my second profile's folder `clone-3`?
 
-Profile ids come from the directories in `~/.claude-instances`, and an id is never
-reused while a directory with that number exists, so a new profile can never be
-handed a directory that already holds someone's login. Delete the leftover
-directories if you want the numbering to start over.
+Nothing in the app shows that number, rows and launcher icons are badged with the
+profile's initial, but it does appear in the profile path. Ids come from the
+directories already in `~/.claude-instances`, and one is never reused while a
+directory with that number exists, so a new profile can never be handed a folder
+that already holds someone else's login. Delete the leftover directories if you want
+the numbering to start over.
 
 ### Does it modify Claude Desktop?
 
