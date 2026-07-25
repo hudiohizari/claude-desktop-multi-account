@@ -22,21 +22,24 @@ final class LinkChooser {
             completion(choice)
         }
 
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 360, height: 100),
-                              styleMask: [.titled, .fullSizeContentView],
-                              backing: .buffered,
-                              defer: false)
+        // A hosting controller sizes the window to the SwiftUI content. A fixed
+        // contentRect collapsed the option list to zero height, leaving a chooser
+        // with nothing to choose from.
+        let controller = NSHostingController(rootView: view)
+        let window = NSWindow(contentViewController: controller)
+        window.styleMask = [.titled, .fullSizeContentView]
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
         window.isMovableByWindowBackground = true
         window.backgroundColor = .clear
-        window.contentView = NSHostingView(rootView: view)
+        window.setContentSize(controller.view.fittingSize)
         window.center()
         window.level = .floating
 
         self.window = window
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
+        Log.write("chooser: shown for \(link), \(clones.count) clone(s)")
     }
 
     private func close() {
@@ -83,7 +86,9 @@ struct LinkChooserView: View {
                 }
                 .padding(8)
             }
-            .frame(maxHeight: 240)
+            // A ScrollView has no intrinsic height, so it needs a definite one or it
+            // collapses when the window sizes itself to the content.
+            .frame(height: min(CGFloat(clones.count + 1) * 42 + 16, 240))
 
             Divider()
 

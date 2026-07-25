@@ -21,14 +21,6 @@ final class MenuBarController: NSObject, NSApplicationDelegate, NSPopoverDelegat
         self.model = CloneListModel(manager: manager, locator: locator)
     }
 
-    func applicationWillFinishLaunching(_ notification: Notification) {
-        NSAppleEventManager.shared().setEventHandler(
-            self,
-            andSelector: #selector(handleDeepLink(_:withReply:)),
-            forEventClass: AppleEventLinkRouter.getURL,
-            andEventID: AEEventID(AppleEventLinkRouter.getURL))
-    }
-
     func applicationDidFinishLaunching(_ notification: Notification) {
         item.button?.image = StatusIcon.make()
         item.button?.target = self
@@ -52,12 +44,19 @@ final class MenuBarController: NSObject, NSApplicationDelegate, NSPopoverDelegat
 
     // MARK: - Deep links
 
-    @objc private func handleDeepLink(_ event: NSAppleEventDescriptor,
-                                      withReply reply: NSAppleEventDescriptor) {
-        guard let string = event.paramDescriptor(forKeyword: AppleEventLinkRouter.directObject)?
-                .stringValue,
-              let url = URL(string: string) else { return }
+    /// The only way this app should receive links. Do NOT also install a GURL
+    /// handler through NSAppleEventManager: that replaces AppKit's handler, which is
+    /// the one that acknowledges the event, and without the acknowledgement macOS
+    /// treats the link as unhandled and passes it on to the next app registered for
+    /// claude://, so Claude opens it too.
+    func application(_ application: NSApplication, open urls: [URL]) {
+        for url in urls where url.scheme == "claude" {
+            Log.write("route: received \(url.absoluteString)")
+            route(url)
+        }
+    }
 
+    private func route(_ url: URL) {
         let clones = manager.clones()
         let running = Set(clones.filter { locator.runningPID(for: $0) != nil }.map(\.id))
         // Suggest the frontmost instance: almost always the window that started the
@@ -65,7 +64,8 @@ final class MenuBarController: NSObject, NSApplicationDelegate, NSPopoverDelegat
         let front = NSWorkspace.shared.frontmostApplication?.processIdentifier
         let suggested = clones.first { locator.runningPID(for: $0) == front }
 
-        chooser.ask(link: string, clones: clones, running: running, suggested: suggested) { choice in
+        chooser.ask(link: url.absoluteString, clones: clones,
+                    running: running, suggested: suggested) { choice in
             guard let choice else { return }
             let result = choice.clone.map { self.router.deliver(url, to: $0) }
                 ?? self.router.deliverToDefaultProfile(url, excluding: clones)
