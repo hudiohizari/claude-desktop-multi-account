@@ -10,6 +10,13 @@ struct Clone: Codable, Equatable {
     var displayName: String { "Claude \(name)" }
     var bundleID: String { "com.local.claude.clone\(id)" }
 
+    /// What the row and launcher icon show. The initial carries meaning; the id is
+    /// a directory number that skips whenever a profile is left on disk.
+    var badgeText: String {
+        name.trimmingCharacters(in: .whitespaces).first
+            .map { String($0).uppercased() } ?? "\(id)"
+    }
+
     /// The wrapper writes its own pid here before exec'ing Claude, and exec keeps
     /// the pid, so this file identifies the Claude process itself.
     var pidFile: String { profileDir + "/.instance.pid" }

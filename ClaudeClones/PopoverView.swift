@@ -227,7 +227,7 @@ private struct CloneRow: View {
             .fill(Theme.accent.opacity(row.isRunning ? 1 : 0.35))
             .frame(width: 26, height: 26)
             .overlay(
-                Text("\(row.clone.id)")
+                Text(row.clone.badgeText)
                     .font(.system(size: 12, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
             )

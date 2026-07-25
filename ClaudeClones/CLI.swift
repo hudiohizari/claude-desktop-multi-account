@@ -27,6 +27,20 @@ struct CLI {
                 return 1
             }
 
+        case "--rename":
+            let names = Array(arguments.dropFirst())
+            guard names.count == 2,
+                  let clone = manager.clones().first(where: { $0.name == names[0] })
+            else { return usage() }
+            do {
+                try manager.rename(clone, to: names[1])
+                print("renamed \(names[0]) to \(names[1])")
+                return 0
+            } catch {
+                print("failed: \(error.localizedDescription)")
+                return 1
+            }
+
         case "--delete":
             guard let name = arguments.dropFirst().first,
                   let clone = manager.clones().first(where: { $0.name == name })
@@ -41,7 +55,8 @@ struct CLI {
     }
 
     private func usage() -> Int32 {
-        print("usage: ClaudeClones [--list | --create <name> | --delete <name> [--with-profile]]")
+        print("usage: ClaudeClones [--list | --create <name> | --rename <old> <new> "
+              + "| --delete <name> [--with-profile]]")
         return 2
     }
 }

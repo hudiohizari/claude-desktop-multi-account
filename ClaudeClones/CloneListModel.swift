@@ -43,8 +43,13 @@ final class CloneListModel: ObservableObject {
 
     func create() {
         let next = (rows.map(\.clone.id).max() ?? 0) + 1
-        attempt { try manager.create(name: "Clone \(next)") }
-        editing = rows.last?.id     // land in the row ready to be named
+        do {
+            let created = try manager.create(name: "Clone \(next)")
+            refresh()
+            editing = created.id    // land in the row ready to be named
+        } catch {
+            failure = error.localizedDescription
+        }
     }
 
     func rename(_ clone: Clone, to name: String) {

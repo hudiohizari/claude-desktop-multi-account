@@ -103,9 +103,9 @@ struct IconBadger {
         ring.lineWidth = 8
         ring.stroke()
 
-        let label = "\(clone.id)" as NSString
+        let label = clone.badgeText as NSString
         let attributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: diameter * 0.62, weight: .bold),
+            .font: NSFont.systemFont(ofSize: diameter * 0.58, weight: .bold),
             .foregroundColor: NSColor.black,
         ]
         let textSize = label.size(withAttributes: attributes)

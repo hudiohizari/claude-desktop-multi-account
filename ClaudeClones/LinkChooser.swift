@@ -71,9 +71,11 @@ struct LinkChooserView: View {
 
             ScrollView {
                 VStack(spacing: 2) {
-                    option(id: nil, title: "Claude", subtitle: "Default profile", isRunning: true)
+                    option(id: nil, badge: "C", title: "Claude",
+                           subtitle: "Default profile", isRunning: true)
                     ForEach(clones, id: \.id) { clone in
                         option(id: clone.id,
+                               badge: clone.badgeText,
                                title: clone.displayName,
                                subtitle: running.contains(clone.id) ? "Running" : "Will be launched",
                                isRunning: running.contains(clone.id))
@@ -105,7 +107,8 @@ struct LinkChooserView: View {
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
-    private func option(id: Int?, title: String, subtitle: String, isRunning: Bool) -> some View {
+    private func option(id: Int?, badge: String, title: String,
+                        subtitle: String, isRunning: Bool) -> some View {
         let isSelected = selected == id
         return HStack(spacing: 10) {
             RoundedRectangle(cornerRadius: 7, style: .continuous)
@@ -113,7 +116,7 @@ struct LinkChooserView: View {
                                 : Theme.accent.opacity(isRunning ? 1 : 0.35))
                 .frame(width: 24, height: 24)
                 .overlay(
-                    Text(id.map(String.init) ?? "C")
+                    Text(badge)
                         .font(.system(size: 11, weight: .bold, design: .rounded))
                         .foregroundStyle(.white)
                 )

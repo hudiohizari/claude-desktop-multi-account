@@ -21,7 +21,7 @@ final class CloneManager {
     @discardableResult
     func create(name: String) throws -> Clone {
         var all = clones()
-        let id = (all.map(\.id).max() ?? 0) + 1
+        let id = nextID(after: all)
         let clone = Clone(id: id,
                           name: name,
                           profileDir: Paths.profile(id: id),
@@ -40,13 +40,30 @@ final class CloneManager {
         updated.appPath = newPath
         try builder.provision(updated)
 
-        var all = clones()
-        if let index = all.firstIndex(where: { $0.id == clone.id }) { all[index] = updated }
+        // Write through the raw list, never `clones()`: its pruning would drop this
+        // entry, whose old bundle path stopped existing the moment we moved it.
+        var all = store.load()
+        if let index = all.firstIndex(where: { $0.id == clone.id }) {
+            all[index] = updated
+        } else {
+            all.append(updated)
+        }
         store.save(all)
+    }
+
+    /// Highest id in the store *or* on disk, plus one. Profile directories outlive
+    /// their store entry whenever one is lost or pruned, and handing the same id out
+    /// twice would point a new clone at someone else's data.
+    private func nextID(after known: [Clone]) -> Int {
+        let onDisk = (try? FileManager.default.contentsOfDirectory(atPath: Paths.instancesRoot))?
+            .compactMap { name -> Int? in
+                name.hasPrefix("clone-") ? Int(name.dropFirst("clone-".count)) : nil
+            } ?? []
+        return (known.map(\.id) + onDisk).max().map { $0 + 1 } ?? 1
     }
 
     func delete(_ clone: Clone, includingProfile: Bool) {
         builder.remove(clone, includingProfile: includingProfile)
-        store.save(clones().filter { $0.id != clone.id })
+        store.save(store.load().filter { $0.id != clone.id })
     }
 }
