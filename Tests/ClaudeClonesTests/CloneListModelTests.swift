@@ -14,7 +14,11 @@ final class CloneListModelTests: XCTestCase {
         let manager = CloneManager(store: sandbox.store(),
                                    builder: provisioner,
                                    layout: sandbox.layout)
-        model = CloneListModel(manager: manager, locator: StubLocator(running: [1]))
+        let defaults = UserDefaults(suiteName: "claudeclones.model.\(UUID().uuidString)")!
+        model = CloneListModel(manager: manager,
+                               locator: StubLocator(running: [1]),
+                               guardian: SchemeGuard(ownership: StubOwnership(),
+                                                     defaults: defaults))
     }
 
     override func tearDown() {
@@ -99,6 +103,59 @@ final class CloneListModelTests: XCTestCase {
         XCTAssertTrue(model.rows.isEmpty)
         XCTAssertNil(model.pendingDelete)
         XCTAssertEqual(provisioner.removed.map(\.profile), [true])
+    }
+
+    /// A running clone whose profile stayed empty means CLAUDE_USER_DATA_DIR was
+    /// ignored and it is quietly sharing the default profile.
+    func testRunningCloneWithAnEmptyProfileIsFlagged() throws {
+        model.create()
+        let row = try XCTUnwrap(model.rows.first)
+        for entry in (try? FileManager.default.contentsOfDirectory(atPath: row.clone.profileDir)) ?? [] {
+            try FileManager.default.removeItem(atPath: row.clone.profileDir + "/" + entry)
+        }
+
+        model.refresh()
+
+        XCTAssertTrue(model.rows.first?.isolationSuspect == true)
+        XCTAssertNotNil(model.isolationWarning)
+        XCTAssertTrue(model.isolationWarning?.contains("Claude Clone 1") == true)
+    }
+
+    func testAPidFileAloneDoesNotCountAsUsedProfile() throws {
+        model.create()
+        let row = try XCTUnwrap(model.rows.first)
+        FileManager.default.createFile(atPath: row.clone.pidFile, contents: Data("42".utf8))
+
+        model.refresh()
+
+        XCTAssertTrue(model.rows.first?.isolationSuspect == true)
+    }
+
+    func testProfileWithDataIsNotFlagged() throws {
+        model.create()
+        let row = try XCTUnwrap(model.rows.first)
+        FileManager.default.createFile(atPath: row.clone.profileDir + "/Cookies",
+                                      contents: Data("x".utf8))
+
+        model.refresh()
+
+        XCTAssertFalse(model.rows.first?.isolationSuspect == true)
+        XCTAssertNil(model.isolationWarning)
+    }
+
+    func testStoppedCloneIsNeverFlagged() throws {
+        model.create()   // id 1 runs
+        model.create()   // id 2 is stopped, and its profile is empty
+
+        model.refresh()
+
+        XCTAssertFalse(model.rows.last?.isolationSuspect == true)
+    }
+
+    func testDefaultProfilePIDComesFromTheLocator() {
+        model.refresh()
+
+        XCTAssertEqual(model.defaultPID, 1)
     }
 
     func testRefreshDropsRowsWhoseLauncherDisappeared() throws {

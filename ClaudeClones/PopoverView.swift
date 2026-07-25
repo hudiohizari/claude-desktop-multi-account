@@ -9,6 +9,10 @@ struct PopoverView: View {
             header
             Divider()
 
+            if let warning = model.isolationWarning { isolationBanner(warning) }
+
+            defaultProfileRow
+
             if model.rows.isEmpty {
                 emptyState
             } else {
@@ -61,6 +65,57 @@ struct PopoverView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
+    }
+
+    /// Reaching the stock profile needs its own row: with a clone running, opening
+    /// Claude from the Dock just activates the clone.
+    private var defaultProfileRow: some View {
+        HStack(spacing: 10) {
+            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .fill(Color.secondary.opacity(0.35))
+                .frame(width: 26, height: 26)
+                .overlay(Text("C")
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white))
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Claude")
+                    .font(.system(size: 12, weight: .medium))
+                Text(model.defaultPID == nil ? "Default profile, stopped"
+                                             : "Default profile, running")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 4)
+            Circle()
+                .fill(model.defaultPID == nil ? Color.secondary.opacity(0.35) : Theme.running)
+                .frame(width: 7, height: 7)
+        }
+        .padding(.horizontal, 14)
+        .frame(height: Theme.rowHeight)
+        .hoverHighlight()
+        .contentShape(Rectangle())
+        .onTapGesture { model.openDefaultProfile() }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Claude, default profile, "
+                            + (model.defaultPID == nil ? "stopped" : "running"))
+    }
+
+    /// Shown when a running profile's directory is still empty, which means its
+    /// data is going to the default profile instead.
+    private func isolationBanner(_ text: String) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 11))
+                .foregroundStyle(.yellow)
+            Text(text)
+                .font(.system(size: 11))
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(Color.yellow.opacity(0.12))
+        .accessibilityLabel("Warning. \(text)")
     }
 
     // MARK: - Empty state
@@ -208,6 +263,13 @@ private struct CloneRow: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer(minLength: 4)
+                if row.isolationSuspect {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.yellow)
+                        .help("This profile looks empty while running, so it may be "
+                              + "sharing the default profile.")
+                }
                 statusDot
                 actions
             }

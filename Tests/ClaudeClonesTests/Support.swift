@@ -87,3 +87,9 @@ final class SpyRegistrar: BundleRegistering {
     func register(_ path: String) { registered.append(path) }
     func unregister(_ path: String) { unregistered.append(path) }
 }
+
+struct StubOwnership: SchemeOwning {
+    var owned = false
+    var ownedByUs: Bool { owned }
+    func setOwner(toUs: Bool) async throws {}
+}

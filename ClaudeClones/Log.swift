@@ -18,6 +18,9 @@ enum Log {
                 try? handle.close()
             } else {
                 try? data.write(to: URL(fileURLWithPath: file))
+                // Owner only: the log names profiles and link shapes.
+                try? FileManager.default.setAttributes([.posixPermissions: 0o600],
+                                                      ofItemAtPath: file)
             }
         }
     }
