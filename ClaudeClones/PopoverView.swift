@@ -88,21 +88,33 @@ struct PopoverView: View {
     // MARK: - Footer
 
     private var footer: some View {
-        VStack(spacing: 6) {
-            Toggle(isOn: Binding(get: { model.routesHere },
-                                 set: { model.setRouting($0) })) {
-                VStack(alignment: .leading, spacing: 1) {
+        VStack(spacing: 0) {
+            // Label and switch are laid out by hand: a Toggle with a custom label
+            // ignores controlSize for the switch itself and centres against the
+            // whole two-line block, which reads as misaligned.
+            HStack(alignment: .center, spacing: 10) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text("Ask where links open")
-                        .font(.system(size: 12))
+                        .font(.system(size: 12, weight: .medium))
                     Text(model.routesHere ? "claude:// links come here first"
                                           : "claude:// links go straight to Claude")
                         .font(.system(size: 10))
                         .foregroundStyle(.secondary)
+                        .lineLimit(1)
                 }
+                Spacer(minLength: 8)
+                Toggle("", isOn: Binding(get: { model.routesHere },
+                                         set: { model.setRouting($0) }))
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+                    .controlSize(.mini)
+                    .tint(Theme.accent)
+                    .accessibilityLabel("Ask where claude:// links open")
             }
-            .toggleStyle(.switch)
-            .controlSize(.small)
-            .tint(Theme.accent)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+
+            Divider()
 
             HStack {
                 Spacer()
@@ -110,11 +122,14 @@ struct PopoverView: View {
                     .buttonStyle(.plain)
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
                     .hoverHighlight()
+                    .keyboardShortcut("q")
             }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 9)
     }
 
     // MARK: - Delete confirmation
@@ -177,6 +192,12 @@ private struct CloneRow: View {
                     .focused(focusedField, equals: row.clone.id)
                     .onSubmit { model.rename(row.clone, to: draftName) }
                     .onExitCommand { model.editing = nil }
+                    // Seeds and focuses itself: the field only exists while this row
+                    // is being renamed, so no onChange watcher is needed.
+                    .onAppear {
+                        draftName = row.clone.name
+                        focusedField.wrappedValue = row.clone.id
+                    }
             } else {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(row.clone.displayName)
@@ -199,12 +220,6 @@ private struct CloneRow: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(row.clone.displayName), \(row.isRunning ? "running" : "stopped")")
         .accessibilityHint("Opens this profile")
-        .onChange(of: model.editing) { editing in
-            if editing == row.clone.id {
-                draftName = row.clone.name
-                focusedField.wrappedValue = row.clone.id
-            }
-        }
     }
 
     private var badge: some View {
