@@ -15,7 +15,7 @@ jobs:
     name: Test and build
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Show toolchain
         run: |
@@ -55,7 +55,7 @@ jobs:
     name: Style
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Checked in Python so this file contains no instance of what it forbids.
       - name: No em dashes
