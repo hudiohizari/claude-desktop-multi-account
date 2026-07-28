@@ -106,6 +106,20 @@ final class SchemeGuardTests: XCTestCase {
         XCTAssertTrue(ownership.calls.isEmpty)
     }
 
+    /// A single delayed check loses whenever Claude registers later than expected,
+    /// which is machine and cold-start dependent, so a launch gets several attempts
+    /// spread over enough time to outlast a slow startup.
+    func testLaunchIsAnsweredWithSeveralSpreadOutAttempts() {
+        XCTAssertGreaterThanOrEqual(SchemeGuard.reclaimDelays.count, 3)
+        XCTAssertEqual(SchemeGuard.reclaimDelays, SchemeGuard.reclaimDelays.sorted())
+        XCTAssertGreaterThanOrEqual(SchemeGuard.reclaimDelays.last ?? 0, 20,
+                                    "must still be checking well after a slow launch")
+    }
+
+    func testPollerRunsOftenEnoughToBeABackstop() {
+        XCTAssertLessThanOrEqual(SchemeGuard.pollInterval, 60)
+    }
+
     func testReassertReportsFailureWithoutCrashing() async throws {
         try await guardian.setWanted(true)
         ownership.owned = false
@@ -158,5 +172,18 @@ final class RedactTests: XCTestCase {
 
     func testGarbageInputStillYieldsNoSecret() {
         XCTAssertEqual(Redact.link("not a url at all"), Redact.unrecognized)
+    }
+}
+
+/// Identifying Claude by bundle id alone missed clones: a wrapper bundle registers
+/// under its own id while running the very same Claude binary.
+final class ClaudeProcessMatchingTests: XCTestCase {
+    func testMatchesTheStockAppByBundleID() {
+        XCTAssertEqual(claudeBundleID, "com.anthropic.claudefordesktop")
+    }
+
+    func testTheBinaryPathIsTheOtherSignal() {
+        XCTAssertEqual(Paths.claudeBinary, "/Applications/Claude.app/Contents/MacOS/Claude")
+        XCTAssertTrue(Paths.claudeBinary.hasPrefix(Paths.claudeApp))
     }
 }
