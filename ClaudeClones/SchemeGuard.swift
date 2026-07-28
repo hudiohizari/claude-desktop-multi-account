@@ -18,6 +18,15 @@ final class SchemeGuard {
     private let defaults: UserDefaults
     private let key = "routeLinksHere"
     private var observer: NSObjectProtocol?
+    private var poller: Timer?
+
+    /// A launch is answered several times over: Claude registers itself somewhere in
+    /// its startup, and how long that takes varies with machine and cold start, so a
+    /// single delayed check loses the race whenever Claude is slower than expected.
+    static let reclaimDelays: [TimeInterval] = [2, 6, 12, 25]
+
+    /// Backstop for anything the launch notification misses.
+    static let pollInterval: TimeInterval = 30
 
     init(ownership: SchemeOwning, defaults: UserDefaults = .standard) {
         self.ownership = ownership
@@ -53,27 +62,49 @@ final class SchemeGuard {
         }
     }
 
-    /// Watch for Claude starting up, then re-claim. The delay lets Claude finish its
-    /// own registration first, otherwise it would just win the race again.
-    func startWatching(bundleID: String = claudeBundleID, delay: TimeInterval = 3) {
+    /// Any process running the Claude binary counts, whatever bundle launched it.
+    /// Matching on bundle id alone missed clones, whose wrapper bundle registers
+    /// under its own id while running the same executable.
+    static func isClaude(_ app: NSRunningApplication) -> Bool {
+        app.bundleIdentifier == claudeBundleID
+            || app.executableURL?.path == Paths.claudeBinary
+    }
+
+    func startWatching() {
         guard observer == nil else { return }
+
         observer = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didLaunchApplicationNotification,
             object: nil,
             queue: .main
         ) { [weak self] notification in
-            let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey]
-                as? NSRunningApplication
-            guard app?.bundleIdentifier == bundleID else { return }
-            Task { @MainActor [weak self] in
-                try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
-                await self?.reassertIfNeeded()
-            }
+            guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey]
+                    as? NSRunningApplication,
+                  Self.isClaude(app) else { return }
+            Task { @MainActor [weak self] in await self?.reclaimRepeatedly() }
         }
-        Task { await reassertIfNeeded() }   // also fix drift from before we started
+
+        // Cheap enough to run forever: one LaunchServices lookup, and only when the
+        // user actually wants the scheme.
+        poller = Timer.scheduledTimer(withTimeInterval: Self.pollInterval,
+                                      repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in await self?.reassertIfNeeded() }
+        }
+
+        Task { await reassertIfNeeded() }   // fix drift from before we started
+    }
+
+    /// Claude can register at any point during its startup, and can register more
+    /// than once, so answer a launch with several attempts rather than one.
+    private func reclaimRepeatedly() async {
+        for delay in Self.reclaimDelays {
+            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            await reassertIfNeeded()
+        }
     }
 
     deinit {
+        poller?.invalidate()
         if let observer { NSWorkspace.shared.notificationCenter.removeObserver(observer) }
     }
 }
